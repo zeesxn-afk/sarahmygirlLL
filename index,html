@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Birthday Maze</title>
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+        background: #000;
+    }
+
+    #winScreen {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.9);
+        color: white;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        z-index: 100;
+        text-align: center;
+    }
+
+    #winScreen h1 {
+        font-size: 4rem;
+        color: gold;
+        text-shadow: 0 0 20px gold;
+    }
+
+    #winScreen a {
+        margin-top: 20px;
+        padding: 15px 25px;
+        background: hotpink;
+        color: white;
+        text-decoration: none;
+        border-radius: 10px;
+        font-size: 1.2rem;
+    }
+
+    #controls {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 50;
+        user-select: none;
+    }
+
+    .btn {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        border: none;
+        font-size: 24px;
+        margin: 5px;
+        background: rgba(255,255,255,0.8);
+    }
+</style>
+</head>
+<body>
+
+<div id="controls">
+    <div style="text-align:center;">
+        <button class="btn" id="up">▲</button>
+    </div>
+    <div>
+        <button class="btn" id="left">◀</button>
+        <button class="btn" id="down">▼</button>
+        <button class="btn" id="right">▶</button>
+    </div>
+</div>
+
+<div id="winScreen">
+    <h1>🎉 HAPPY BIRTHDAY TASNEEM 🎉</h1>
+    <p>You escaped the maze!</p>
+    <a href="https://sarahloveruwu.carrd.co/" target="_blank">
+        Open Surprise
+    </a>
+</div>
+
+<script type="module">
+import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+
+const camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Lights
+const light = new THREE.DirectionalLight(0xffffff, 2);
+light.position.set(10,20,10);
+scene.add(light);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+// Floor
+const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(40,40),
+    new THREE.MeshStandardMaterial({ color:0x44aa44 })
+);
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
+
+// Maze Layout
+const maze = [
+"##########",
+"#        #",
+"# ###### #",
+"# #      #",
+"# # ######",
+"# #      #",
+"# #### # #",
+"#      # #",
+"###### #G#",
+"##########"
+];
+
+const walls = [];
+const wallGeo = new THREE.BoxGeometry(1,2,1);
+const wallMat = new THREE.MeshStandardMaterial({ color:0x4444ff });
+
+let goalPos = null;
+
+for(let z=0; z<maze.length; z++){
+    for(let x=0; x<maze[z].length; x++){
+
+        const ch = maze[z][x];
+
+        if(ch === "#"){
+            const wall = new THREE.Mesh(wallGeo, wallMat);
+            wall.position.set(x,1,z);
+            scene.add(wall);
+            walls.push(wall);
+        }
+
+        if(ch === "G"){
+            const goal = new THREE.Mesh(
+                new THREE.BoxGeometry(1,1,1),
+                new THREE.MeshStandardMaterial({ color:0xffff00 })
+            );
+            goal.position.set(x,0.5,z);
+            scene.add(goal);
+            goalPos = new THREE.Vector3(x,0.5,z);
+        }
+    }
+}
+
+// Player
+const player = new THREE.Mesh(
+    new THREE.SphereGeometry(0.35,16,16),
+    new THREE.MeshStandardMaterial({ color:0xff0000 })
+);
+player.position.set(1,0.35,1);
+scene.add(player);
+
+camera.position.set(1,2,-2);
+
+const keys = {};
+
+document.addEventListener("keydown", e=>{
+    keys[e.key.toLowerCase()] = true;
+});
+
+document.addEventListener("keyup", e=>{
+    keys[e.key.toLowerCase()] = false;
+});
+
+// Mobile Controls
+function hold(id,key){
+    const b=document.getElementById(id);
+
+    const start=()=>keys[key]=true;
+    const stop=()=>keys[key]=false;
+
+    b.addEventListener("touchstart",start);
+    b.addEventListener("touchend",stop);
+
+    b.addEventListener("mousedown",start);
+    b.addEventListener("mouseup",stop);
+    b.addEventListener("mouseleave",stop);
+}
+
+hold("up","w");
+hold("down","s");
+hold("left","a");
+hold("right","d");
+
+function collides(x,z){
+    for(const wall of walls){
+        if(
+            Math.abs(x-wall.position.x)<0.6 &&
+            Math.abs(z-wall.position.z)<0.6
+        ){
+            return true;
+        }
+    }
+    return false;
+}
+
+function update(){
+    let speed = 0.05;
+
+    let nx = player.position.x;
+    let nz = player.position.z;
+
+    if(keys["w"]) nz -= speed;
+    if(keys["s"]) nz += speed;
+    if(keys["a"]) nx -= speed;
+    if(keys["d"]) nx += speed;
+
+    if(!collides(nx,nz)){
+        player.position.x = nx;
+        player.position.z = nz;
+    }
+
+    camera.position.x = player.position.x;
+    camera.position.z = player.position.z - 2;
+    camera.lookAt(player.position.x,1,player.position.z);
+
+    // Win
+    if(
+        Math.abs(player.position.x-goalPos.x)<0.6 &&
+        Math.abs(player.position.z-goalPos.z)<0.6
+    ){
+        document.getElementById("winScreen").style.display = "flex";
+    }
+}
+
+function animate(){
+    requestAnimationFrame(animate);
+    update();
+    renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener("resize",()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
+
+</body>
+</html>
